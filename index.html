@@ -1,0 +1,1508 @@
+<!DOCTYPE html><!-- 声明文档类型为 HTML5 -->
+<html lang="zh-CN"><!-- 根元素，页面主语言为简体中文 -->
+<head><!-- 文档元数据与样式区域 -->
+<meta charset="UTF-8"><!-- 指定字符编码为 UTF-8，避免中文乱码 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><!-- 移动端视口：宽度跟随设备，初始缩放 1 -->
+<title>欢迎！</title><!-- 浏览器标签页标题 -->
+<style><!-- 内联样式表开始 -->
+  :root {/* 全局 CSS 变量（主题色与通用尺寸） */
+    --glass-bg: rgba(255, 255, 255, 0.12); /* 玻璃卡片背景半透明白 */
+    --glass-border: rgba(255, 255, 255, 0.20); /* 玻璃边框颜色 */
+    --text: #ffffff; /* 主文字颜色：白 */
+    --text-secondary: rgba(255, 255, 255, 0.75); /* 次要文字：略透明白 */
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.25); /* 卡片阴影 */
+    --radius: 16px; /* 圆角基准值 */
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* 过渡时长与缓动曲线 */
+    /* 搜索框颜色（可由设置面板覆盖，见 applySearchStyleToDom） */
+    --search-box-bg: #334155;
+    --search-box-focus-bg: #475569;
+    --search-box-text: #f8fafc;
+    --search-placeholder-color: #94a3b8;
+    --search-btn-bg: #475569;
+    --search-btn-hover-bg: #64748b;
+    --search-btn-icon: #f8fafc;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; } /* 通配符：清零外边距内边距，盒模型为 border-box */
+
+  body {/* 页面主体：水平居中主栏、垂直从顶部留白对齐，深色底、禁止滚动 */
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif; /* 字体优先苹方、微软雅黑 */
+    color: #f2f2f2; /* 默认前景色，避免未显式设色的子元素继承 UA 黑色在深色背景上不可见 */
+    width: 100vw; /* 宽度占满视口 */
+    height: 100vh; /* 高度占满视口 */
+    overflow: hidden; /* 隐藏溢出，不出现滚动条 */
+    display: flex; /* 弹性布局 */
+    align-items: flex-start; /* 顶部对齐：书签增多时不再垂直重算，避免时钟/日期/搜索被挤上移 */
+    justify-content: center; /* 水平居中 .main */
+    padding-top: 10vh; /* 与原先整体上移后的视觉位置接近 */
+    background-color: #1a1a2e; /* 无背景图时的底色 */
+    background-size: cover; /* 背景图覆盖整区 */
+    background-position: center; /* 背景图居中 */
+    background-repeat: no-repeat; /* 背景不重复平铺 */
+    transition: background-image 0.5s ease; /* 切换背景图时淡变 */
+  }
+
+  /* ---------- 半透明遮罩层 ---------- */
+  .overlay {/* 覆盖全屏的暗色层，压暗背景突出前景（略淡以便毛玻璃底下仍有细节可糊） */
+    position: fixed; inset: 0; /* 固定定位，四边贴齐视口 */
+    background: rgba(0, 0, 0, 0.26); /* 半透明黑：过浓会让 backdrop 底下像纯色，模糊不明显 */
+    z-index: 0; /* 堆叠在最底层内容之上、主内容之下 */
+  }
+
+  /* ---------- 主内容区 ---------- */
+  .main {/* 时钟、搜索、书签的容器：子项拉满宽，便于与搜索条左右对齐 */
+    position: relative; z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 880px;
+    padding: 0 24px;
+    margin-top: 0;
+  }
+
+  /* ---------- 时间 + 天气：两列网格；左列贴搜索左缘，右列贴搜索右缘，中间对称留白 ---------- */
+ .top-panels-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto auto;
+  align-items: end;
+  column-gap: 24px;
+  row-gap: 4px;
+  width: 100%;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.clock-block,
+.weather-block {
+  display: contents;
+}
+
+/* ===== 第1行 ===== */
+.weather-city-row {
+  grid-column: 2;
+  grid-row: 1;  /* 右侧第1行：城市 + 天气描述 */
+  justify-self: end;
+  align-self: end;
+  display: flex;
+  flex-direction: row;  /* 改为横向排列 */
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;  /* 城市和描述之间的间距 */
+  max-width: 100%;
+  margin-top: 0;
+}
+
+
+/* ===== 第2行 ===== */
+.weather-main {
+  grid-column: 2;
+  grid-row: 2;  /* 右侧第2行：天气图标 + 温度 */
+  justify-self: end;
+  align-self: end;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  line-height: 1;
+}
+
+/* ===== 第2行：左侧改为时钟 ===== */
+.clock {
+  grid-column: 1;
+  grid-row: 2;  /* 左侧第2行：时钟 */
+  justify-self: start;
+  align-self: end;
+  line-height: 1;
+  font-size: 48px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.75),
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 3px 14px rgba(0, 0, 0, 0.5);
+  user-select: none;
+}
+
+/* ===== 第3行：左侧改为日期 ===== */
+.date-text {
+  grid-column: 1;
+  grid-row: 3;  /* 左侧第3行：日期 */
+  justify-self: start;
+  align-self: end;
+  line-height: 1.35;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 1px;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.65);
+  user-select: none;
+}
+
+/* ===== 第3行 ===== */
+.weather-meta {
+  grid-column: 2;
+  grid-row: 3;  /* 右侧第3行：湿度 风速 */
+  justify-self: end;
+  align-self: end;
+  text-align: right;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.35;
+  max-width: 100%;
+}
+
+
+/* ===== 第4行：空（不设置任何元素） ===== */
+
+/* ===== 其他样式保持不变 ===== */
+.locate-btn {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.locate-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+.locate-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.weather-city {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.5px;
+  line-height: 1.35;
+  word-break: break-all;
+  text-align: right;
+  min-width: 0;
+}
+
+.weather-icon { 
+  font-size: 30px; 
+  line-height: 1; 
+}
+
+.weather-temp {
+  font-size: 52px;
+  font-weight: 200;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  line-height: 1;
+}
+
+.weather-desc {
+  /* 如果天气描述不需要显示，可以注释掉或删除 */
+  display: none;
+}
+
+
+  /* ---------- 搜索框区域 ---------- */
+  .search-wrapper {/* 与 .main 同宽：左缘对齐时钟块，右缘对齐天气块 */
+    width: 100%;
+    position: relative;
+    margin-bottom: 44px;
+    flex-shrink: 0;
+  }
+  @keyframes searchRgbBorderFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+  }
+  .search-shell {/* RGB 流动炫彩描边：内层为玻璃输入框 */
+    padding: 2px;
+    border-radius: 30px;
+    background: linear-gradient(
+      90deg,
+      #ff0080,
+      #ff8c00,
+      #ffee00,
+      #40ff80,
+      #00d4ff,
+      #8040ff,
+      #ff0080
+    );
+    background-size: 400% 100%;
+    animation: searchRgbBorderFlow 5s linear infinite;
+    box-sizing: border-box;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .search-shell {
+      animation: none;
+      background: linear-gradient(135deg, rgba(120, 200, 255, 0.55), rgba(200, 120, 255, 0.55));
+      background-size: 100% 100%;
+    }
+  }
+  .search-box {/* 实色背景，颜色由 :root 变量 + 设置面板控制 */
+    width: 100%;
+    height: 64px;
+    padding: 0 58px 0 20px;
+    border: none;
+    border-radius: 28px;
+    background: var(--search-box-bg);
+    color: var(--search-box-text);
+    font-size: 15px;
+    outline: none;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+  }
+  .search-box::placeholder {
+    opacity: 1;
+    color: var(--search-placeholder-color);
+  }
+  .search-box:focus {
+    background: var(--search-box-focus-bg);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+  }
+  .search-btn {
+    position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%;
+    border: none;
+    background: var(--search-btn-bg);
+    color: var(--search-btn-icon);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .search-btn:hover { background: var(--search-btn-hover-bg); }
+
+  /* ---------- 书签网格：固定 2 行×6 列（共 12 格），先排第 1 行再第 2 行，宽与搜索框一致 ---------- */
+  .bookmarks-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr); /* 每行最多 6 个，与搜索区域同宽 */
+    grid-template-rows: repeat(2, 120px); /* 两行 */
+    gap: 10px;
+    justify-items: center;
+    align-content: start;
+    min-height: calc(2 * 120px + 1 * 10px);
+    max-height: calc(2 * 120px + 1 * 10px);
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+  .bookmark-card {/* 单个书签：可点击的链接块 */
+    width: 120px; height: 120px; /* 固定方块尺寸 */
+    border-radius: var(--radius); /* 圆角 */
+    background: var(--glass-bg); /* 玻璃背景 */
+    backdrop-filter: blur(18px) saturate(1.35); /* 与搜索框一致：偏上区域背景更单调时需更强观感 */
+    -webkit-backdrop-filter: blur(18px) saturate(1.35);
+    border: 1px solid var(--glass-border); /* 边框 */
+    display: flex; flex-direction: column; /* 纵向排列图标与标题 */
+    align-items: center; justify-content: center; /* 内容居中 */
+    cursor: pointer; user-select: none; /* 手型、不可选中文字 */
+    transition: var(--transition); /* 悬停动画 */
+    box-shadow: var(--shadow); /* 阴影 */
+    text-decoration: none; color: var(--text); /* 去掉下划线、文字颜色 */
+    position: relative; /* 为子元素定位预留 */
+  }
+  .bookmark-card:hover {/* 悬停：略上浮、阴影加深 */
+    background: rgba(255,255,255,0.20);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.35);
+  }
+  .bookmark-icon {/* 书签图标容器 */
+    width: 64px; height: 64px; border-radius: 10px; /* 小方角图标区 */
+    background: rgba(255,255,255,0.2); /* 浅底 */
+    display: flex; align-items: center; justify-content: center; /* 图标居中 */
+    font-size: 24px; margin-bottom: 6px; /* emoji 备用字号、与标题间距 */
+    overflow: hidden; /* 图片超出裁剪 */
+  }
+  .bookmark-icon img { width: 100%; height: 100%; object-fit: cover; } /* favicon 铺满且裁剪适配 */
+  .bookmark-label {/* 书签标题文字 */
+    font-size: 13px; color: var(--text-secondary); /* 小字、次要色 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* 单行省略号 */
+    max-width: 104px; text-align: center; /* 最大宽度、居中 */
+  }
+
+  /* ---------- 设置按钮（右上角齿轮） ---------- */
+  .settings-btn {
+    position: fixed; top: 24px; right: 24px; z-index: 10; /* 固定右上角、较高层级 */
+    width: 40px; height: 40px; border-radius: 50%; /* 圆形按钮 */
+    border: 1px solid var(--glass-border); /* 边框 */
+    background: var(--glass-bg); /* 玻璃背景 */
+    backdrop-filter: blur(12px); /* 模糊 */
+    -webkit-backdrop-filter: blur(12px); /* WebKit 模糊 */
+    color: #fff; font-size: 20px; cursor: pointer; /* 图标颜色与大小 */
+    transition: var(--transition); /* 过渡（含旋转） */
+    display: flex; align-items: center; justify-content: center; /* 图标居中 */
+  }
+  .settings-btn:hover { background: rgba(255,255,255,0.22); transform: rotate(60deg); } /* 悬停提亮并旋转 */
+
+  /* ---------- 设置面板：遮罩 ---------- */
+  .settings-overlay {/* 点击可关闭面板的半透明全屏层 */
+    position: fixed; inset: 0; z-index: 100; /* 铺满视口、层级在内容之上 */
+    background: rgba(0,0,0,0.45); /* 半透明黑 */
+    opacity: 0; pointer-events: none; /* 默认隐藏且不接收点击 */
+    transition: opacity 0.3s ease; /* 淡入淡出 */
+  }
+  .settings-overlay.open { opacity: 1; pointer-events: auto; } /* 打开时可点、不透明 */
+
+  /* ---------- 设置面板：侧栏 ---------- */
+  .settings-panel {/* 从右侧滑入的设置抽屉 */
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 101; /* 贴右全高、在遮罩之上 */
+    width: 420px; max-width: 92vw; /* 宽度与窄屏上限 */
+    background: rgba(20, 20, 40, 0.95); /* 深色半透明底 */
+    backdrop-filter: blur(30px); /* 强模糊 */
+    -webkit-backdrop-filter: blur(30px); /* WebKit */
+    border-left: 1px solid rgba(255,255,255,0.1); /* 左侧细分隔线 */
+    padding: 32px 28px; /* 内边距 */
+    overflow-y: auto; /* 内容过多时纵向滚动 */
+    transform: translateX(100%); /* 默认移出屏幕右侧（关闭态） */
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); /* 滑入滑出动画 */
+    color: #e0e0e0; /* 面板内默认文字色 */
+  }
+  .settings-panel.open { transform: translateX(0); } /* 打开时滑入可视区 */
+
+  .settings-panel h2 {/* 设置标题 */
+    font-size: 22px; font-weight: 500; margin-bottom: 28px; /* 字号、字重、下边距 */
+    color: #fff; letter-spacing: 1px; /* 白色、字间距 */
+  }
+  .settings-section {/* 每一块设置分区 */
+    margin-bottom: 28px; /* 分区间距 */
+  }
+  .settings-section h3 {/* 分区小标题 */
+    font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.5); /* 小号半透明白 */
+    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; /* 大写样式、字间距、下边距 */
+  }
+  .settings-section label {/* 表单说明文字 */
+    display: block; font-size: 13px; color: rgba(255,255,255,0.6); /* 块级、小字 */
+    margin-bottom: 6px; /* 与控件间距 */
+  }
+  .settings-section input[type="file"] { display: none; } /* 隐藏原生文件选择框，用按钮触发 */
+  .upload-btn {/* 「选择图片」样式按钮 */
+    display: inline-block; padding: 10px 22px; /* 行内块、内边距 */
+    border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; background: rgba(255,255,255,0.08); /* 边框圆角背景 */
+    color: #fff; font-size: 13px; cursor: pointer; /* 文字与指针 */
+    transition: var(--transition); /* 悬停过渡 */
+  }
+  .upload-btn:hover { background: rgba(255,255,255,0.16); } /* 悬停略亮 */
+  .reset-bg-btn {/* 「恢复默认」背景按钮 */
+    display: inline-block; margin-left: 10px; /* 与上传按钮同一行、左间距 */
+    padding: 10px 18px; border: 1px solid rgba(255,100,100,0.35); /* 内边距、淡红边框 */
+    border-radius: 8px; background: rgba(255,80,80,0.12); /* 圆角、淡红底 */
+    color: #ff6b6b; font-size: 13px; cursor: pointer; /* 强调色文字 */
+    transition: var(--transition); /* 过渡 */
+  }
+  .reset-bg-btn:hover { background: rgba(255,80,80,0.22); } /* 悬停加深红底 */
+
+  .search-color-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .search-color-row label {
+    margin-bottom: 0;
+    flex: 1;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.65);
+  }
+  .search-color-row input[type="color"] {
+    width: 44px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    flex-shrink: 0;
+  }
+  .reset-search-colors-btn {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 8px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .reset-search-colors-btn:hover { background: rgba(255, 255, 255, 0.14); }
+
+  /* ---------- 书签编辑列表项 ---------- */
+  .bookmark-editor-item {/* 设置里每一行：标题、URL、删除 */
+    display: flex; align-items: center; gap: 10px; /* 横向排列、垂直居中、间距 */
+    padding: 10px 12px; margin-bottom: 8px; /* 内边距、行间距 */
+    border-radius: 10px; /* 圆角 */
+    background: rgba(255,255,255,0.05); /* 极浅背景 */
+    border: 1px solid rgba(255,255,255,0.08); /* 细边框 */
+  }
+  .bookmark-editor-item input {/* 编辑区输入框 */
+    flex: 1; height: 34px; padding: 0 10px; /* 平分剩余宽度、高度、左右内边距 */
+    border: 1px solid rgba(255,255,255,0.12); /* 边框 */
+    border-radius: 6px; background: rgba(255,255,255,0.06); /* 圆角、暗底 */
+    color: #e0e0e0; font-size: 13px; outline: none; /* 文字色、字号、无轮廓 */
+    min-width: 0; /* 允许 flex 子项收缩，避免撑破布局 */
+  }
+  .bookmark-editor-item input:focus { border-color: rgba(255,255,255,0.3); } /* 聚焦时边框更亮 */
+  .bookmark-editor-item input::placeholder { color: rgba(255,255,255,0.25); } /* 占位符更淡 */
+  .drag-handle {/* 拖拽排序手柄 */
+    width: 28px; height: 32px; display: flex; align-items: center; justify-content: center;
+    cursor: grab; color: rgba(255,255,255,0.35); font-size: 18px; flex-shrink: 0;
+    user-select: none; transition: color 0.2s;
+  }
+  .drag-handle:hover { color: rgba(255,255,255,0.7); }
+  .drag-handle:active { cursor: grabbing; }
+  .bookmark-editor-item.drag-over { border-color: rgba(100,180,255,0.5); background: rgba(100,180,255,0.1); }
+  .bookmark-editor-item.dragging { opacity: 0.4; }
+  .del-bookmark-btn {/* 删除单条书签按钮 */
+    width: 32px; height: 32px; border-radius: 50%; /* 小圆按钮 */
+    border: 1px solid rgba(255,80,80,0.3); /* 红系边框 */
+    background: rgba(255,80,80,0.1); /* 淡红底 */
+    color: #ff6b6b; font-size: 16px; cursor: pointer; /* 叉号颜色与大小 */
+    flex-shrink: 0; transition: var(--transition); /* 不缩小、过渡 */
+  }
+  .del-bookmark-btn:hover { background: rgba(255,80,80,0.25); } /* 悬停加深 */
+
+  .add-bookmark-btn {/* 「添加书签」虚线按钮 */
+    display: inline-block; padding: 8px 20px; /* 行内块、内边距 */
+    border: 1px dashed rgba(255,255,255,0.25); /* 虚线边框 */
+    border-radius: 8px; background: transparent; /* 圆角、透明底 */
+    color: rgba(255,255,255,0.6); font-size: 13px; cursor: pointer; /* 次要文字色 */
+    transition: var(--transition); /* 过渡 */
+  }
+  .add-bookmark-btn:hover {/* 悬停变实感 */
+    background: rgba(255,255,255,0.06);
+    color: #fff; border-color: rgba(255,255,255,0.4);
+  }
+  .add-bookmark-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .close-btn {/* 设置面板右上角关闭 */
+    position: absolute; top: 20px; right: 24px; /* 绝对定位到面板角 */
+    width: 36px; height: 36px; border-radius: 50%; /* 圆形 */
+    border: none; background: rgba(255,255,255,0.08); /* 无边框、浅底 */
+    color: #fff; font-size: 20px; cursor: pointer; /* × 符号样式 */
+    transition: var(--transition); /* 悬停过渡 */
+  }
+  .close-btn:hover { background: rgba(255,255,255,0.18); } /* 悬停略亮 */
+
+  .settings-panel::-webkit-scrollbar { width: 4px; } /* WebKit 滚动条宽度 */
+  .settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; } /* 滚动条滑块样式 */
+
+  /* ---------- 翻译按钮（右上角齿轮下方） ---------- */
+  .translate-btn {
+    position: fixed; top: 76px; right: 24px; z-index: 10;
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #fff; font-size: 18px; cursor: pointer;
+    transition: var(--transition);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .translate-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.1); }
+
+  /* ---------- 翻译面板：遮罩 ---------- */
+  .translate-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.45);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .translate-overlay.open { opacity: 1; pointer-events: auto; }
+
+  /* ---------- 翻译面板：侧栏 ---------- */
+  .translate-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 101;
+    width: 420px; max-width: 92vw;
+    background: rgba(20, 20, 40, 0.95);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-left: 1px solid rgba(255,255,255,0.1);
+    padding: 32px 28px;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #e0e0e0;
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+  .translate-panel.open { transform: translateX(0); }
+
+  .translate-panel h2 {
+    font-size: 22px; font-weight: 500; margin-bottom: 0; margin-top: 0;
+    color: #fff; letter-spacing: 1px; flex-shrink: 0;
+  }
+
+  .translate-panel .close-btn {
+    position: absolute; top: 20px; right: 24px;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: none; background: rgba(255,255,255,0.08);
+    color: #fff; font-size: 20px; cursor: pointer;
+    transition: var(--transition);
+  }
+  .translate-panel .close-btn:hover { background: rgba(255,255,255,0.18); }
+
+  /* 语言类型行 */
+  .lang-row {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .lang-row label {
+    font-size: 13px; color: rgba(255,255,255,0.6);
+    white-space: nowrap; min-width: 52px;
+  }
+  .lang-row input, .lang-row select {
+    flex: 1; height: 34px; padding: 0 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #e0e0e0; font-size: 13px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .lang-row input:focus, .lang-row select:focus { border-color: rgba(255,255,255,0.35); }
+  .lang-row select {
+    appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23ffffff99' stroke-width='2'%3e%3cpath d='M2 4l4 4 4-4'/%3e%3c/svg%3e");
+    background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+  }
+  .lang-row select option { background: #1e293b; color: #e0e0e0; }
+
+  /* 翻译输入框与结果框 */
+  .translate-textarea {
+    flex: 1; min-height: 140px; padding: 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    color: #e0e0e0; font-size: 14px;
+    outline: none; resize: none;
+    font-family: inherit; line-height: 1.6;
+    transition: border-color 0.2s;
+  }
+  .translate-textarea:focus { border-color: rgba(255,255,255,0.35); }
+  .translate-textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+  /* 结果框容器：相对定位以放置复制按钮 */
+  .result-wrapper {
+    flex: 1; position: relative; display: flex; min-height: 140px;
+  }
+  .result-wrapper .translate-textarea {
+    width: 100%; padding-bottom: 48px;
+    background: rgba(255,255,255,0.04);
+    color: #e0e0e0;
+    cursor: default;
+  }
+
+  /* 复制按钮：位于结果框右下角 */
+  .copy-btn {
+    position: absolute; right: 10px; bottom: 10px;
+    height: 32px; padding: 0 14px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #ccc; font-size: 12px; cursor: pointer;
+    transition: var(--transition);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  .copy-btn.copied { border-color: rgba(100,255,150,0.5); color: #7fffaa; }
+
+  .translate-panel::-webkit-scrollbar { width: 4px; }
+  .translate-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+  /* 腾讯云凭证折叠区 */
+  .credential-toggle {
+    font-size: 12px; color: rgba(255,255,255,0.45); cursor: pointer;
+    display: flex; align-items: center; gap: 4px; user-select: none;
+    flex-shrink: 0;
+  }
+  .credential-toggle:hover { color: rgba(255,255,255,0.7); }
+  .credential-section { display: none; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .credential-section.open { display: flex; }
+
+  @media (max-width: 640px) {/* 窄屏：单列 定位+城市→时间→气温→日期→湿度风速→现象 */
+    .top-panels-row {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(6, auto);
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .weather-city-row { grid-column: 1; grid-row: 1; justify-self: end; }
+    .clock { grid-column: 1; grid-row: 2; justify-self: end; font-size: 28px; }
+    .weather-main { grid-column: 1; grid-row: 3; justify-self: end; }
+    .date-text { grid-column: 1; grid-row: 4; justify-self: end; }
+    .weather-meta { grid-column: 1; grid-row: 5; justify-self: end; max-width: none; }
+    .weather-desc { grid-column: 1; grid-row: 6; justify-self: end; }
+    .weather-city { max-width: none; }
+    .weather-temp { font-size: 40px; }
+    .weather-icon { font-size: 26px; }
+    .search-shell { border-radius: 26px; }
+    .search-box { height: 48px; font-size: 14px; border-radius: 24px; padding: 0 52px 0 18px; }
+    .search-btn { width: 38px; height: 38px; right: 6px; font-size: 16px; }
+    .bookmarks-grid {
+      gap: 8px;
+      grid-template-rows: repeat(2, 102px);
+      min-height: calc(2 * 102px + 1 * 8px);
+      max-height: calc(2 * 102px + 1 * 8px);
+    }
+    .bookmark-card { width: 102px; height: 102px; } /* 书签卡片略小 */
+    .translate-btn { top: 76px; right: 24px; }
+    .translate-panel { width: 100vw; max-width: 100vw; padding: 24px 20px; }
+  }
+</style><!-- 样式表结束 -->
+</head><!-- head 结束 -->
+<body><!-- 可见页面内容开始 -->
+
+<div class="overlay"></div><!-- 全屏暗色遮罩，不包裹主内容以便层级控制 -->
+
+<!-- 设置按钮：点击调用 openSettings() -->
+<button class="settings-btn" title="设置" onclick="openSettings()">&#9881;</button><!-- 齿轮符号（Unicode） -->
+<button class="translate-btn" title="翻译" onclick="openTranslate()">&#127760;</button><!-- 地球🌐翻译按钮 -->
+
+<!-- 主内容：时钟、日期、搜索、书签 -->
+<div class="main">
+  <div class="top-panels-row"><!-- 时间日历与天气并排、整体居中 -->
+    <div class="clock-block"><!-- 底托：保证时钟/日期与任意背景图对比清晰 -->
+      <div class="clock" id="clock">00:00</div><!-- 时钟显示区，由 JS 每秒更新 -->
+      <div class="date-text" id="dateText">----年--月--日 星期-</div><!-- 日期星期，由 JS 更新 -->
+    </div>
+    <div class="weather-block"><!-- display:contents 子项参与 .top-panels-row 网格 -->
+      <div class="weather-city-row">
+        <div class="weather-city" id="weatherCity">未定位</div>
+        <button type="button" class="locate-btn" id="locateBtn" title="获取当前位置并更新天气">定位</button>
+      </div>
+      <div class="weather-main">
+        <span class="weather-icon" id="weatherIcon">🌡️</span>
+        <span class="weather-temp" id="weatherTemp">--°</span>
+      </div>
+      <div class="weather-meta" id="weatherMeta"></div>
+      <div class="weather-desc" id="weatherDesc">点击「定位」获取天气</div>
+    </div>
+  </div>
+
+  <div class="search-wrapper"><!-- 搜索条容器 -->
+    <div class="search-shell"><!-- RGB 流动炫彩边 -->
+      <input class="search-box" id="searchInput" placeholder="使用 Bing 搜索…" autofocus
+        onkeydown="if(event.key==='Enter')doSearch()"><!-- 回车键触发搜索；autofocus 页面打开即聚焦 -->
+    </div>
+    <button class="search-btn" onclick="doSearch()">&#128269;</button><!-- 放大镜 emoji，点击搜索 -->
+  </div>
+
+  <div class="bookmarks-grid" id="bookmarksGrid"></div><!-- 书签卡片由 JS 动态填充 -->
+</div><!-- .main 结束 -->
+
+<!-- 设置面板背后的点击区域：点击调用 closeSettings() -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+
+<!-- 右侧滑出设置面板 -->
+<div class="settings-panel" id="settingsPanel">
+  <button class="close-btn" onclick="closeSettings()">&times;</button><!-- 关闭按钮 -->
+  <h2>设置</h2><!-- 面板大标题 -->
+
+  <div class="settings-section"><!-- 背景设置区块 -->
+    <h3>背景图片</h3><!-- 区块标题 -->
+    <label>上传一张图片作为主页背景（将自动填充全屏）</label><!-- 说明文字 -->
+    <input type="file" id="bgFileInput" accept="image/*" onchange="handleBgUpload(event)"><!-- 仅图片、选文件后处理上传 -->
+    <button class="upload-btn" onclick="document.getElementById('bgFileInput').click()">选择图片</button><!-- 程序化触发隐藏 file 输入 -->
+    <button class="reset-bg-btn" onclick="resetBackground()">恢复默认</button><!-- 清除自定义背景 -->
+  </div>
+
+  <div class="settings-section"><!-- 搜索框颜色（由右上角齿轮打开） -->
+    <h3>搜索框颜色</h3>
+    <label style="display:block;font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:12px;">调整即保存；炫彩外圈仍为动画描边，内侧为下列实色。</label>
+    <div class="search-color-row"><label for="searchColBg">背景</label><input type="color" id="searchColBg" oninput="onSearchStyleColorInput()" title="输入框背景"></div>
+    <div class="search-color-row"><label for="searchColFocus">聚焦背景</label><input type="color" id="searchColFocus" oninput="onSearchStyleColorInput()" title="聚焦时背景"></div>
+    <div class="search-color-row"><label for="searchColText">文字</label><input type="color" id="searchColText" oninput="onSearchStyleColorInput()" title="输入文字"></div>
+    <div class="search-color-row"><label for="searchColPlaceholder">占位符</label><input type="color" id="searchColPlaceholder" oninput="onSearchStyleColorInput()" title="占位提示文字"></div>
+    <div class="search-color-row"><label for="searchColBtn">搜索按钮背景</label><input type="color" id="searchColBtn" oninput="onSearchStyleColorInput()" title="放大镜按钮"></div>
+    <div class="search-color-row"><label for="searchColBtnHover">按钮悬停</label><input type="color" id="searchColBtnHover" oninput="onSearchStyleColorInput()" title="悬停时按钮背景"></div>
+    <div class="search-color-row"><label for="searchColBtnIcon">按钮图标</label><input type="color" id="searchColBtnIcon" oninput="onSearchStyleColorInput()" title="放大镜颜色"></div>
+    <button type="button" class="reset-search-colors-btn" onclick="resetSearchStyleColors()">恢复搜索框默认色</button>
+  </div>
+
+  <div class="settings-section"><!-- 书签管理区块 -->
+    <h3>书签管理</h3>
+    <label style="display:block;font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:10px;">首页固定 2 行×6 列，最多 12 条书签。</label>
+    <div id="bookmarkEditor"></div><!-- 书签编辑列表由 JS 渲染 -->
+    <button type="button" class="add-bookmark-btn" id="addBookmarkBtn" onclick="addBookmark()">+ 添加书签</button><!-- 达上限时禁用 -->
+  </div>
+</div><!-- .settings-panel 结束 -->
+
+<!-- 翻译面板遮罩 -->
+<div class="translate-overlay" id="translateOverlay" onclick="closeTranslate()"></div>
+
+<!-- 右侧滑出翻译面板 -->
+<div class="translate-panel" id="translatePanel">
+  <button class="close-btn" onclick="closeTranslate()">&times;</button>
+  <h2>翻译</h2>
+
+  <span class="credential-toggle" id="credentialToggle" onclick="toggleCredential()">&#9881; 腾讯云凭证</span>
+  <div class="credential-section" id="credentialSection">
+    <input type="text" id="tmtSecretId" placeholder="SecretId" oninput="onCredentialInput()" style="height:34px;padding:0 10px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:rgba(255,255,255,0.06);color:#e0e0e0;font-size:13px;outline:none;">
+    <input type="password" id="tmtSecretKey" placeholder="SecretKey" oninput="onCredentialInput()" style="height:34px;padding:0 10px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:rgba(255,255,255,0.06);color:#e0e0e0;font-size:13px;outline:none;">
+  </div>
+
+  <div class="lang-row">
+    <label for="srcLang">源语言</label>
+    <select id="srcLang" onchange="onTranslateInput()">
+      <option value="en">英语</option>
+      <option value="zh">中文（简体）</option>
+      <option value="zh-TW">中文（繁体）</option>
+      <option value="ja">日语</option>
+      <option value="ko">韩语</option>
+      <option value="fr">法语</option>
+      <option value="es">西班牙语</option>
+      <option value="it">意大利语</option>
+      <option value="de">德语</option>
+      <option value="tr">土耳其语</option>
+      <option value="ru">俄语</option>
+      <option value="pt">葡萄牙语</option>
+      <option value="vi">越南语</option>
+      <option value="id">印尼语</option>
+      <option value="th">泰语</option>
+      <option value="ms">马来语</option>
+      <option value="ar">阿拉伯语</option>
+      <option value="hi">印地语</option>
+    </select>
+  </div>
+
+  <textarea class="translate-textarea" id="translateInput" placeholder="输入要翻译的文字…" oninput="onTranslateInput()"></textarea>
+
+  <div class="lang-row">
+    <label for="tgtLang">目标语言</label>
+    <select id="tgtLang" onchange="onTranslateInput()">
+      <option value="zh">中文（简体）</option>
+      <option value="zh-TW">中文（繁体）</option>
+      <option value="en">英语</option>
+      <option value="ja">日语</option>
+      <option value="ko">韩语</option>
+      <option value="fr">法语</option>
+      <option value="es">西班牙语</option>
+      <option value="it">意大利语</option>
+      <option value="de">德语</option>
+      <option value="tr">土耳其语</option>
+      <option value="ru">俄语</option>
+      <option value="pt">葡萄牙语</option>
+      <option value="vi">越南语</option>
+      <option value="id">印尼语</option>
+      <option value="th">泰语</option>
+      <option value="ms">马来语</option>
+      <option value="ar">阿拉伯语</option>
+      <option value="hi">印地语</option>
+    </select>
+  </div>
+
+  <div class="result-wrapper">
+    <textarea class="translate-textarea" id="translateResult" placeholder="翻译结果将自动显示在这里…" readonly></textarea>
+    <button class="copy-btn" id="copyBtn" onclick="copyTranslationResult()" title="一键复制翻译结果" style="visibility:hidden;">
+      <span id="copyIcon">&#128203;</span> <span id="copyText">复制</span>
+    </button>
+  </div>
+</div><!-- .translate-panel 结束 -->
+
+<script><!-- 页面逻辑脚本 -->
+  /* =========================== 数据存储（localStorage 键名） =========================== */
+  const STORAGE_BG  = 'homepage_bg'; /* 存储背景图 Data URL 的键 */
+  const STORAGE_BM  = 'homepage_bookmarks'; /* 存储书签 JSON 数组的键 */
+  const STORAGE_WEATHER_SAVED = 'homepage_weather_saved'; /* { lat, lon, city } 地级市名，再次点「定位」覆盖 */
+  const STORAGE_SEARCH_STYLE = 'homepage_search_style'; /* 搜索框配色 JSON */
+  const MAX_BOOKMARKS = 12; /* 2 行×每行 6 个 */
+
+  var DEFAULT_SEARCH_STYLE = {
+    boxBg: '#334155',
+    boxFocus: '#475569',
+    text: '#f8fafc',
+    placeholder: '#94a3b8',
+    btnBg: '#475569',
+    btnHover: '#64748b',
+    btnIcon: '#f8fafc'
+  };
+
+  function getSearchStyle() {
+    try {
+      var o = JSON.parse(localStorage.getItem(STORAGE_SEARCH_STYLE) || 'null');
+      if (!o || typeof o !== 'object') return Object.assign({}, DEFAULT_SEARCH_STYLE);
+      return {
+        boxBg: o.boxBg || DEFAULT_SEARCH_STYLE.boxBg,
+        boxFocus: o.boxFocus || DEFAULT_SEARCH_STYLE.boxFocus,
+        text: o.text || DEFAULT_SEARCH_STYLE.text,
+        placeholder: o.placeholder || DEFAULT_SEARCH_STYLE.placeholder,
+        btnBg: o.btnBg || DEFAULT_SEARCH_STYLE.btnBg,
+        btnHover: o.btnHover || DEFAULT_SEARCH_STYLE.btnHover,
+        btnIcon: o.btnIcon || DEFAULT_SEARCH_STYLE.btnIcon
+      };
+    } catch (e) {
+      return Object.assign({}, DEFAULT_SEARCH_STYLE);
+    }
+  }
+  function saveSearchStyle(s) {
+    localStorage.setItem(STORAGE_SEARCH_STYLE, JSON.stringify(s));
+  }
+  function applySearchStyleToDom(s) {
+    var r = document.documentElement;
+    r.style.setProperty('--search-box-bg', s.boxBg);
+    r.style.setProperty('--search-box-focus-bg', s.boxFocus);
+    r.style.setProperty('--search-box-text', s.text);
+    r.style.setProperty('--search-placeholder-color', s.placeholder);
+    r.style.setProperty('--search-btn-bg', s.btnBg);
+    r.style.setProperty('--search-btn-hover-bg', s.btnHover);
+    r.style.setProperty('--search-btn-icon', s.btnIcon);
+  }
+  function syncSearchColorInputsFromStorage() {
+    var s = getSearchStyle();
+    var el;
+    el = document.getElementById('searchColBg'); if (el) el.value = s.boxBg;
+    el = document.getElementById('searchColFocus'); if (el) el.value = s.boxFocus;
+    el = document.getElementById('searchColText'); if (el) el.value = s.text;
+    el = document.getElementById('searchColPlaceholder'); if (el) el.value = s.placeholder;
+    el = document.getElementById('searchColBtn'); if (el) el.value = s.btnBg;
+    el = document.getElementById('searchColBtnHover'); if (el) el.value = s.btnHover;
+    el = document.getElementById('searchColBtnIcon'); if (el) el.value = s.btnIcon;
+  }
+  function onSearchStyleColorInput() {
+    var s = {
+      boxBg: document.getElementById('searchColBg').value,
+      boxFocus: document.getElementById('searchColFocus').value,
+      text: document.getElementById('searchColText').value,
+      placeholder: document.getElementById('searchColPlaceholder').value,
+      btnBg: document.getElementById('searchColBtn').value,
+      btnHover: document.getElementById('searchColBtnHover').value,
+      btnIcon: document.getElementById('searchColBtnIcon').value
+    };
+    saveSearchStyle(s);
+    applySearchStyleToDom(s);
+  }
+  function resetSearchStyleColors() {
+    localStorage.removeItem(STORAGE_SEARCH_STYLE);
+    var d = Object.assign({}, DEFAULT_SEARCH_STYLE);
+    applySearchStyleToDom(d);
+    syncSearchColorInputsFromStorage();
+  }
+
+  function getSavedWeatherLoc() {
+    try {
+      var o = JSON.parse(localStorage.getItem(STORAGE_WEATHER_SAVED) || 'null');
+      if (!o || typeof o.lat !== 'number' || typeof o.lon !== 'number' || isNaN(o.lat) || isNaN(o.lon)) return null;
+      return { lat: o.lat, lon: o.lon, city: String(o.city || '') };
+    } catch (e) { return null; }
+  }
+  function saveWeatherLoc(o) {
+    localStorage.setItem(STORAGE_WEATHER_SAVED, JSON.stringify({
+      lat: o.lat,
+      lon: o.lon,
+      city: String(o.city || '')
+    }));
+  }
+
+  function getBookmarks() {/* 从本地存储读取书签列表；超出上限时截断并写回 */
+    try {
+      var raw = localStorage.getItem(STORAGE_BM);
+      var list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) return [];
+      if (list.length > MAX_BOOKMARKS) {
+        list = list.slice(0, MAX_BOOKMARKS);
+        localStorage.setItem(STORAGE_BM, JSON.stringify(list));
+      }
+      return list;
+    } catch(e) { return []; }
+  }
+
+  function syncAddBookmarkButtonState() {
+    var btn = document.getElementById('addBookmarkBtn');
+    if (!btn) return;
+    var full = getBookmarks().length >= MAX_BOOKMARKS;
+    btn.disabled = full;
+    btn.title = full ? '已达上限：最多 ' + MAX_BOOKMARKS + ' 条' : '';
+    btn.style.opacity = full ? '0.5' : '';
+    btn.style.cursor = full ? 'not-allowed' : '';
+  }
+  function saveBookmarks(list) {/* 将书签数组写回本地存储 */
+    localStorage.setItem(STORAGE_BM, JSON.stringify(list)); /* 序列化为 JSON 字符串保存 */
+  }
+
+  /* =========================== 时钟与日期 =========================== */
+  const weekMap = ['日','一','二','三','四','五','六']; /* getDay() 0–6 对应中文星期 */
+  function updateClock() {/* 根据当前时间更新 DOM */
+    const now = new Date(); /* 当前日期时间对象 */
+    const hh = String(now.getHours()).padStart(2,'0'); /* 小时补零为两位字符串 */
+    const mm = String(now.getMinutes()).padStart(2,'0'); /* 分钟补零为两位字符串 */
+    document.getElementById('clock').textContent = hh + ':' + mm; /* 写入时钟元素 */
+    document.getElementById('dateText').textContent = /* 拼接中文日期与星期 */
+      now.getFullYear() + '年' +
+      (now.getMonth()+1) + '月' + /* 月份从 0 起算故 +1 */
+      now.getDate() + '日  星期' + weekMap[now.getDay()]; /* 日、星期中文 */
+  }
+  updateClock(); /* 进入页面立即刷新一次 */
+  setInterval(updateClock, 1000); /* 每秒执行一次，实现走秒 */
+
+  function weatherCodeToDesc(code) {
+    if (code === 0) return '晴朗';
+    if (code === 1) return '大部晴朗';
+    if (code === 2) return '多云';
+    if (code === 3) return '阴天';
+    if (code === 45 || code === 48) return '雾';
+    if (code >= 51 && code <= 55) return '毛毛雨';
+    if (code === 56 || code === 57) return '冻毛毛雨';
+    if (code >= 61 && code <= 65) return '降雨';
+    if (code === 66 || code === 67) return '冻雨';
+    if (code >= 71 && code <= 75) return '降雪';
+    if (code === 77) return '雪粒';
+    if (code >= 80 && code <= 82) return '阵雨';
+    if (code === 85 || code === 86) return '阵雪';
+    if (code === 95) return '雷雨';
+    if (code === 96 || code === 99) return '雷雨伴冰雹';
+    return '未知';
+  }
+  function weatherCodeToEmoji(code) {
+    if (code === 0) return '☀️';
+    if (code === 1) return '🌤️';
+    if (code === 2) return '⛅';
+    if (code === 3) return '☁️';
+    if (code === 45 || code === 48) return '🌫️';
+    if (code >= 51 && code <= 67) return '🌧️';
+    if (code >= 71 && code <= 77) return '❄️';
+    if (code >= 80 && code <= 86) return '🌦️';
+    if (code >= 95) return '⛈️';
+    return '🌡️';
+  }
+  function trimStr(s) {
+    if (s == null || s === '') return '';
+    return String(s).trim();
+  }
+  function pickPrefectureFromBigDataCloud(d) {
+    var lv = d.administrativeLevels || {};
+    var a3 = trimStr(lv.adminLevel3);
+    var a2 = trimStr(lv.adminLevel2);
+    if (a3 && /市|州|盟|地区|自治州/.test(a3)) return a3;
+    var c = trimStr(d.city);
+    if (c) return c;
+    if (a3) return a3;
+    if (trimStr(d.locality)) return trimStr(d.locality);
+    if (a2 && /市/.test(a2) && !/省|自治区/.test(a2)) return a2;
+    var p = trimStr(d.principalSubdivision);
+    if (p) return p;
+    return '未知地区';
+  }
+  function pickPrefectureFromNominatim(addr) {
+    var state = trimStr(addr.state);
+    var city = trimStr(addr.city);
+    if (/^(北京市|上海市|天津市|重庆市)$/.test(state)) return state;
+    if (/^(北京|上海|天津|重庆)$/.test(state)) return state + '市';
+    if (city) return city;
+    if (trimStr(addr.county)) return trimStr(addr.county);
+    if (state) return state;
+    return '未知地区';
+  }
+  function reverseGeocodePrefecture(lat, lon) {
+    var bdc = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&localityLanguage=zh';
+    return fetch(bdc).then(function(r) {
+      if (!r.ok) throw new Error('bdc');
+      return r.json();
+    }).then(function(d) {
+      var n = pickPrefectureFromBigDataCloud(d);
+      if (n && n !== '未知地区') return n;
+      throw new Error('nom');
+    }).catch(function() {
+      var nom = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&accept-language=zh-CN';
+      return fetch(nom, { headers: { 'Accept-Language': 'zh-CN' } }).then(function(r2) {
+        if (!r2.ok) throw new Error('nom');
+        return r2.json();
+      }).then(function(j) {
+        return pickPrefectureFromNominatim(j.address || {});
+      }).catch(function() {
+        return '未知地区';
+      });
+    });
+  }
+  function applyWeatherDom(icon, temp, desc, meta) {
+    document.getElementById('weatherIcon').textContent = icon;
+    document.getElementById('weatherTemp').textContent = temp;
+    document.getElementById('weatherDesc').textContent = desc;
+    document.getElementById('weatherMeta').textContent = meta || '';
+  }
+  function fetchWeatherFromCoords(lat, lon) {
+    applyWeatherDom('🌡️', '--°', '获取中…', '');
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto';
+    return fetch(url).then(function(r) {
+      if (!r.ok) throw new Error('bad');
+      return r.json();
+    }).then(function(data) {
+      var cur = data.current;
+      if (!cur) throw new Error('nocur');
+      var icon = weatherCodeToEmoji(cur.weather_code);
+      var temp = Math.round(cur.temperature_2m) + '°';
+      var desc = weatherCodeToDesc(cur.weather_code);
+      var meta = '湿度 ' + Math.round(cur.relative_humidity_2m) + '% · 风速 ' + Math.round(cur.wind_speed_10m) + ' km/h';
+      applyWeatherDom(icon, temp, desc, meta);
+    }).catch(function() {
+      applyWeatherDom('❔', '--°', '天气获取失败', '请检查网络或稍后重试');
+    });
+  }
+  function onLocateButtonClick() {
+    var btn = document.getElementById('locateBtn');
+    if (!navigator.geolocation) {
+      document.getElementById('weatherDesc').textContent = '当前浏览器不支持定位';
+      return;
+    }
+    if (btn) btn.disabled = true;
+    document.getElementById('weatherCity').textContent = '定位中…';
+    applyWeatherDom('📍', '--°', '获取位置与地名…', '');
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        var lat = pos.coords.latitude;
+        var lon = pos.coords.longitude;
+        reverseGeocodePrefecture(lat, lon).then(function(city) {
+          saveWeatherLoc({ lat: lat, lon: lon, city: city });
+          document.getElementById('weatherCity').textContent = city;
+          return fetchWeatherFromCoords(lat, lon);
+        }).finally(function() {
+          if (btn) btn.disabled = false;
+        });
+      },
+      function() {
+        applyWeatherDom('❔', '--°', '定位失败', '请允许浏览器使用位置信息');
+        var saved = getSavedWeatherLoc();
+        document.getElementById('weatherCity').textContent = (saved && saved.city) ? saved.city : '未定位';
+        if (btn) btn.disabled = false;
+      },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
+    );
+  }
+  function initWeatherPanel() {
+    var btn = document.getElementById('locateBtn');
+    if (btn) btn.onclick = onLocateButtonClick;
+    var saved = getSavedWeatherLoc();
+    if (saved) {
+      document.getElementById('weatherCity').textContent = saved.city || '未知地区';
+      fetchWeatherFromCoords(saved.lat, saved.lon);
+    } else {
+      document.getElementById('weatherCity').textContent = '未定位';
+      applyWeatherDom('🌡️', '--°', '点击「定位」获取天气', '');
+    }
+  }
+
+  /* =========================== 背景图 =========================== */
+  function applyBackground() {/* 根据 localStorage 设置 body 背景 */
+    const bg = localStorage.getItem(STORAGE_BG); /* 读取已保存的背景 Data URL */
+    if (bg) { /* 若有自定义图 */
+      document.body.style.backgroundImage = 'url(' + bg + ')'; /* 设为 CSS 背景图 */
+    } else { /* 否则使用默认 */
+      // 默认：多色线性渐变（非图片）
+      document.body.style.backgroundImage =
+        'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #1a1a2e 100%)'; /* 斜向四色渐变 */
+    }
+  }
+  applyBackground(); /* 首次加载应用背景 */
+
+  function handleBgUpload(e) {/* 用户选择本地图片后的处理 */
+    const file = e.target.files[0]; /* 取第一个选中文件 */
+    if (!file) return; /* 未选文件则直接返回 */
+    const reader = new FileReader(); /* 文件读取器，用于转 Data URL */
+    reader.onload = function(ev) { /* 读取完成回调 */
+      localStorage.setItem(STORAGE_BG, ev.target.result); /* 把整个 Data URL 字符串存入本地 */
+      applyBackground(); /* 立即应用到页面 */
+    };
+    reader.readAsDataURL(file); /* 异步以 Base64 Data URL 形式读取图片 */
+    e.target.value = ''; /* 清空 input，便于同一文件再次选择也能触发 change */
+  }
+
+  function resetBackground() {/* 恢复默认背景（清除自定义图） */
+    localStorage.removeItem(STORAGE_BG); /* 删除存储的背景项 */
+    applyBackground(); /* 重新应用（走渐变默认） */
+  }
+
+  /* =========================== Bing 搜索 =========================== */
+  function doSearch() {/* 读取输入框并跳转 Bing */
+    const q = document.getElementById('searchInput').value.trim(); /* 取关键词并去首尾空格 */
+    if (!q) return; /* 空关键词不跳转 */
+    window.location.href = 'https://www.bing.com/search?q=' + encodeURIComponent(q); /* URL 编码后拼查询串并导航 */
+  }
+
+  /* =========================== 书签网格渲染 =========================== */
+  function getFaviconFallbacks(url) {/* 根据 URL 生成多级备用图标地址 */
+    try {
+      var u = new URL(url);
+      var d = u.hostname;
+      return [
+        u.origin + '/favicon.ico',
+        'https://www.google.com/s2/favicons?domain=' + d + '&sz=64',
+        'https://icons.duckduckgo.com/ip3/' + d + '.ico'
+      ];
+    } catch(e) { return []; }
+  }
+
+  function renderBookmarks() {/* 根据存储数据生成书签卡片 HTML */
+    var grid = document.getElementById('bookmarksGrid');
+    var list = getBookmarks();
+    grid.innerHTML = list.map(function(bm) {
+      var iconHtml = '';
+      if (bm.url) {
+        var fallbacks = getFaviconFallbacks(bm.url);
+        if (fallbacks.length) {
+          var primary = fallbacks[0];
+          var rest = fallbacks.slice(1).join('|');
+          iconHtml = '<img src="' + primary + '" alt="" data-fbs="' + rest + '" onerror="var f=this.dataset.fbs;if(f){this.src=f.split(\'|\')[0];this.dataset.fbs=f.split(\'|\').slice(1).join(\'|\')||\'\'}else{this.style.display=\'none\';this.parentElement.innerHTML=\'&#128279;\'}">';
+        } else {
+          iconHtml = '&#128279;';
+        }
+      } else {
+        iconHtml = '&#128279;';
+      }
+      return '<a class="bookmark-card" href="' + (bm.url || '#') + '" title="' + (bm.title || '') + '">' +
+        '<div class="bookmark-icon">' + iconHtml + '</div>' +
+        '<span class="bookmark-label">' + (bm.title || '未命名') + '</span>' +
+      '</a>';
+    }).join('');
+    syncAddBookmarkButtonState();
+  }
+
+  /* =========================== 设置面板内：书签编辑器 =========================== */
+  /* ======== 书签拖拽排序 ======== */
+  var dragSrcIdx = -1;
+  function handleDragStart(e) {
+    dragSrcIdx = parseInt(this.dataset.idx);
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(dragSrcIdx));
+  }
+  function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    var items = document.querySelectorAll('.bookmark-editor-item');
+    items.forEach(function(it) { it.classList.remove('drag-over'); });
+  }
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    this.classList.add('drag-over');
+  }
+  function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    var tgtIdx = parseInt(this.dataset.idx);
+    if (dragSrcIdx < 0 || dragSrcIdx === tgtIdx) return;
+    var list = getBookmarks();
+    var item = list.splice(dragSrcIdx, 1)[0];
+    list.splice(tgtIdx, 0, item);
+    saveBookmarks(list);
+    renderBookmarks();
+    renderEditor();
+  }
+  function bindDragEvents(item, idx) {
+    item.setAttribute('draggable', 'true');
+    item.dataset.idx = idx;
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('dragleave', handleDragLeave);
+    item.addEventListener('drop', handleDrop);
+  }
+
+  function renderEditor() {/* 渲染设置里的书签编辑行 */
+    var container = document.getElementById('bookmarkEditor');
+    var list = getBookmarks();
+    container.innerHTML = list.map(function(bm, i) {
+      return '<div class="bookmark-editor-item">' +
+        '<span class="drag-handle" title="拖拽排序">&#9776;</span>' +
+        '<input type="text" placeholder="标题" value="' + (bm.title || '') + '" data-idx="' + i + '" data-field="title" oninput="updateBookmarkField(this)">' +
+        '<input type="url" placeholder="https://..." value="' + (bm.url || '') + '" data-idx="' + i + '" data-field="url" oninput="updateBookmarkField(this)">' +
+        '<button class="del-bookmark-btn" onclick="removeBookmark(' + i + ')">&times;</button>' +
+      '</div>';
+    }).join('');
+    var items = container.querySelectorAll('.bookmark-editor-item');
+    items.forEach(function(item, idx) { bindDragEvents(item, idx); });
+    syncAddBookmarkButtonState();
+  }
+
+  function updateBookmarkField(el) {/* 编辑框 oninput 时更新对应书签字段 */
+    var idx  = parseInt(el.dataset.idx); /* 从 data-idx 读行号 */
+    var field = el.dataset.field; /* 'title' 或 'url' */
+    var list  = getBookmarks(); /* 取全列表 */
+    if (idx < 0 || idx >= list.length) return; /* 索引越界则忽略 */
+    list[idx][field] = el.value; /* 写入对应对象的字段 */
+    saveBookmarks(list); /* 持久化 */
+    renderBookmarks(); /* 刷新首页书签显示 */
+  }
+
+  function addBookmark() {/* 追加一条空白书签 */
+    var list = getBookmarks();
+    if (list.length >= MAX_BOOKMARKS) return;
+    list.push({ title: '', url: '' });
+    saveBookmarks(list);
+    renderBookmarks();
+    renderEditor();
+  }
+
+  function removeBookmark(idx) {/* 按索引删除一条 */
+    var list = getBookmarks(); /* 读列表 */
+    list.splice(idx, 1); /* 从 idx 起删除 1 个元素 */
+    saveBookmarks(list); /* 保存 */
+    renderBookmarks(); /* 刷新网格 */
+    renderEditor(); /* 刷新编辑行 */
+  }
+
+  /* =========================== 设置面板开关 =========================== */
+  function openSettings() {/* 打开设置：先渲染编辑器再显示遮罩与面板 */
+    renderEditor(); /* 内部会 sync 添加按钮 */
+    syncSearchColorInputsFromStorage();
+    document.getElementById('settingsOverlay').classList.add('open'); /* 遮罩可加点击、变不透明 */
+    document.getElementById('settingsPanel').classList.add('open'); /* 侧栏滑入 */
+  }
+
+  function closeSettings() {/* 关闭设置：移除 open 类 */
+    document.getElementById('settingsOverlay').classList.remove('open'); /* 遮罩隐藏 */
+    document.getElementById('settingsPanel').classList.remove('open'); /* 侧栏滑出 */
+  }
+
+  // 全局键盘：按 ESC 关闭面板（先关翻译，再关设置）
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (document.getElementById('translatePanel').classList.contains('open')) {
+        closeTranslate();
+      } else if (document.getElementById('settingsPanel').classList.contains('open')) {
+        closeSettings();
+      }
+    }
+  });
+
+  /* =========================== 腾讯云 TMT 凭证存储 =========================== */
+  var STORAGE_TMT_CREDENTIAL = 'homepage_tmt_credential';
+
+  function getTmtCredential() {
+    try {
+      var o = JSON.parse(localStorage.getItem(STORAGE_TMT_CREDENTIAL) || 'null');
+      if (!o || typeof o !== 'object') return { secretId: '', secretKey: '' };
+      return { secretId: String(o.secretId || ''), secretKey: String(o.secretKey || '') };
+    } catch(e) { return { secretId: '', secretKey: '' }; }
+  }
+  function saveTmtCredential(id, key) {
+    localStorage.setItem(STORAGE_TMT_CREDENTIAL, JSON.stringify({ secretId: String(id || ''), secretKey: String(key || '') }));
+  }
+  function loadCredentialToDom() {
+    var c = getTmtCredential();
+    document.getElementById('tmtSecretId').value = c.secretId;
+    document.getElementById('tmtSecretKey').value = c.secretKey;
+  }
+  function onCredentialInput() {
+    saveTmtCredential(
+      document.getElementById('tmtSecretId').value.trim(),
+      document.getElementById('tmtSecretKey').value.trim()
+    );
+  }
+
+  /* =========================== 翻译面板 =========================== */
+  var translateTimer = null;
+  var translateRequestId = 0;
+
+  function toggleCredential() {
+    var sec = document.getElementById('credentialSection');
+    sec.classList.toggle('open');
+  }
+
+  function openTranslate() {
+    loadCredentialToDom();
+    document.getElementById('translateOverlay').classList.add('open');
+    document.getElementById('translatePanel').classList.add('open');
+    var inp = document.getElementById('translateInput');
+    if (inp.value.trim()) onTranslateInput();
+  }
+
+  function closeTranslate() {
+    document.getElementById('translateOverlay').classList.remove('open');
+    document.getElementById('translatePanel').classList.remove('open');
+  }
+
+  function onTranslateInput() {
+    if (translateTimer) clearTimeout(translateTimer);
+    translateTimer = setTimeout(doTranslate, 500);
+  }
+
+  /* ---- Web Crypto API 辅助函数 ---- */
+  function buf2hex(buf) {
+    return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+  function sha256Hex(str) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)).then(buf2hex);
+  }
+  function hmacSha256(key, msg) {
+    var k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+    return crypto.subtle.importKey('raw', k, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      .then(function(cKey) { return crypto.subtle.sign('HMAC', cKey, new TextEncoder().encode(msg)); })
+      .then(function(sig) { return new Uint8Array(sig); });
+  }
+  function hmacSha256Hex(key, msg) {
+    return hmacSha256(key, msg).then(buf2hex);
+  }
+
+  /* ---- 腾讯云 TMT TextTranslate（TC3-HMAC-SHA256 签名） ---- */
+  function tencentTmtTextTranslate(text, src, tgt, secretId, secretKey) {
+    var endpoint = 'tmt.tencentcloudapi.com';
+    var service  = 'tmt';
+    var action   = 'TextTranslate';
+    var version  = '2018-03-21';
+    var region   = 'ap-guangzhou';
+
+    var payload = JSON.stringify({
+      SourceText: text,
+      Source: src,
+      Target: tgt,
+      ProjectId: 0
+    });
+
+    var timestamp = Math.floor(Date.now() / 1000);
+    var date = new Date(timestamp * 1000).toISOString().substring(0, 10);
+
+    return sha256Hex(payload).then(function(hashedPayload) {
+      // TC3 规范请求：签名 host 为目标域名 tmt.tencentcloudapi.com
+      var canonicalHeaders = 'content-type:application/json\nhost:' + endpoint + '\n';
+      var signedHeaders = 'content-type;host';
+      var canonicalRequest = 'POST\n/\n\n' + canonicalHeaders + '\n' + signedHeaders + '\n' + hashedPayload;
+
+      return sha256Hex(canonicalRequest).then(function(hashedCanonicalRequest) {
+        var credentialScope = date + '/' + service + '/tc3_request';
+        var stringToSign = 'TC3-HMAC-SHA256\n' + timestamp + '\n' + credentialScope + '\n' + hashedCanonicalRequest;
+
+        return hmacSha256('TC3' + secretKey, date).then(function(secretDate) {
+          return hmacSha256(secretDate, service).then(function(secretService) {
+            return hmacSha256(secretService, 'tc3_request').then(function(secretSigning) {
+              return hmacSha256Hex(secretSigning, stringToSign).then(function(signature) {
+                var authorization = 'TC3-HMAC-SHA256 Credential=' + secretId + '/' + credentialScope +
+                  ', SignedHeaders=' + signedHeaders + ', Signature=' + signature;
+
+                var targetUrl = 'https://' + endpoint;
+
+                // 本地 Python 代理最优，并行请求中它最快（localhost < 1ms）
+                // 若未启动本地代理则自动回退到 CORS 公共代理
+                var proxyList = [
+                  'http://127.0.0.1:8765',                         // 本地 Python 代理
+                  'https://corsproxy.io/?' + encodeURIComponent(targetUrl),
+                  'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl)
+                ];
+
+                return Promise.any(proxyList.map(function(proxyUrl) {
+                  return fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-TC-Action': action,
+                      'X-TC-Version': version,
+                      'X-TC-Timestamp': String(timestamp),
+                      'X-TC-Region': region,
+                      'Authorization': authorization
+                    },
+                    body: payload
+                  }).then(function(r) {
+                    if (!r.ok) throw new Error('代理 HTTP ' + r.status);
+                    return r.json();
+                  });
+                }));
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+
+  function doTranslate() {
+    var text = document.getElementById('translateInput').value.trim();
+    var src  = document.getElementById('srcLang').value.trim() || 'en';
+    var tgt  = document.getElementById('tgtLang').value.trim() || 'zh';
+    var secretId  = document.getElementById('tmtSecretId').value.trim();
+    var secretKey = document.getElementById('tmtSecretKey').value.trim();
+    var resultEl = document.getElementById('translateResult');
+
+    if (!text) {
+      resultEl.value = '';
+      document.getElementById('copyBtn').style.visibility = 'hidden';
+      return;
+    }
+    if (!secretId || !secretKey) {
+      document.getElementById('copyBtn').style.visibility = 'hidden';
+      resultEl.value = '请先填写腾讯云 SecretId 和 SecretKey';
+      return;
+    }
+
+    document.getElementById('copyBtn').style.visibility = 'visible';
+    resultEl.value = '翻译中…';
+
+    var id = ++translateRequestId;
+
+    tencentTmtTextTranslate(text, src, tgt, secretId, secretKey).then(function(data) {
+      if (id !== translateRequestId) return;
+      if (data.Response && data.Response.TargetText) {
+        resultEl.value = data.Response.TargetText;
+      } else if (data.Response && data.Response.Error) {
+        resultEl.value = '翻译错误: ' + data.Response.Error.Message;
+      } else {
+        resultEl.value = '翻译失败，请重试';
+      }
+    }).catch(function(e) {
+      if (id !== translateRequestId) return;
+      // Promise.any 全失败时抛出 AggregateError，给出网络层排查提示
+      if (e && e.errors) {
+        resultEl.value = '请求失败: 所有代理均不可达，请检查网络连接或尝试其他代理';
+      } else {
+        resultEl.value = '请求失败: ' + (e.message || '未知错误');
+      }
+    });
+  }
+
+  function copyTranslationResult() {
+    var text = document.getElementById('translateResult').value;
+    if (!text || text === '翻译中…') return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        showCopySuccess();
+      }).catch(function() {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function showCopySuccess() {
+    var btn = document.getElementById('copyBtn');
+    document.getElementById('copyIcon').textContent = '✔';
+    document.getElementById('copyText').textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      document.getElementById('copyIcon').textContent = '📋';
+      document.getElementById('copyText').textContent = '复制';
+      btn.classList.remove('copied');
+    }, 2000);
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px'; ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); showCopySuccess(); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* =========================== 页面初始化 =========================== */
+  applySearchStyleToDom(getSearchStyle());
+  syncSearchColorInputsFromStorage();
+  renderBookmarks(); /* 内部会 sync 添加按钮 */
+  initWeatherPanel();
+</script><!-- 脚本结束 -->
+
+</body><!-- body 结束 -->
+</html><!-- 文档结束 -->
